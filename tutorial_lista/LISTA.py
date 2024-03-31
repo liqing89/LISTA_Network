@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class LISTA(nn.Module):
+    # net = LISTA(n, m, W_d, max_iter=30, L=L, theta=a/L)
     def __init__(self, n, m, W_e, max_iter, L, theta):
         """
         # Arguments
@@ -27,9 +28,9 @@ class LISTA(nn.Module):
         self._W = nn.Linear(in_features=n, out_features=m, bias=False)
         self._S = nn.Linear(in_features=m, out_features=m, bias=False)
         self.shrinkage = nn.Softshrink(theta)
-        self.theta = theta
-        self.max_iter = max_iter
-        self.A = W_e
+        self.theta = theta # a/L
+        self.max_iter = max_iter # max number of internal iteration
+        self.A = W_e # dictionary
         self.L = L
         
     # weights initialization based on the dictionary
@@ -59,10 +60,10 @@ class LISTA(nn.Module):
 
 def train_lista(Y, dictionary, a, L, max_iter=30):
     
-    n, m = dictionary.shape
-    n_samples = Y.shape[0]
-    batch_size = 128
-    steps_per_epoch = n_samples // batch_size
+    n, m = dictionary.shape # dictionary matrix:[n]256x[m]1000
+    n_samples = Y.shape[0] # Y: 5000x256
+    batch_size = 128 # 每个批次使用的样本数量
+    steps_per_epoch = n_samples // batch_size # 步数 = 样本数量 / 批次容量
     
     # convert the data into tensors
     Y = torch.from_numpy(Y)
@@ -83,19 +84,23 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,  momentum=0.9)
 
     loss_list = []
-    for epoch in tqdm(range(100),desc='training process'):
+    total = 20
+    for epoch in tqdm(range(total),desc='training process'):
         time.sleep(0.1)
         index_samples = np.random.choice(a=n_samples, size=n_samples, replace=False, p=None)
         Y_shuffle = Y[index_samples]
+        # 每个训练轮次的样本顺序都随机打乱过
         data = range(steps_per_epoch)
         progress_bar = tqdm(data, desc='current_steps')
         for step in progress_bar:
             time.sleep(0.1)
             Y_batch = Y_shuffle[step*batch_size:(step+1)*batch_size]
+            # 选取该批次的训练数据
             optimizer.zero_grad()
-    
+            # 清除之前的梯度
             # get the outputs
             X_h = net(Y_batch)
+            # 当我们自定义一个类继承自 nn.Module 时，PyTorch 会默认调用 forward 方法来定义模型的前向传播过程
             Y_h = torch.mm(X_h, W_d.T)
     
             # compute the losss
@@ -104,7 +109,9 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
             loss = loss1 + loss2
             
             loss.backward()
+            # 通过损失函数计算梯度
             optimizer.step()  
+            # 根据梯度更新模型参数
     
             with torch.no_grad():
                 loss_list.append(loss.detach().data)

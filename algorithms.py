@@ -76,6 +76,21 @@ class FISTA(nn.Module):
             x = z + ((t0 - 1.0) / t) * (z - zold)
         return x, 0, 0
 
+class LISTA(nn.Module):
+    def __init__(self, m, n, k, phi, lmbda):
+        super(LISTA, self).__init__()
+        self.m = m
+        self.n = n
+        self.k = k # 迭代次数
+        self.phi = torch.Tensor(phi).to(device) # 方法调用 用于将张量移动到指定的设备上
+        self.lmbda = lmbda
+        self.L = np.max(np.linalg.eigvals(np.dot(phi, phi.T)).astype(np.float32)) # 矩阵特征值最大值
+    
+    
+
+    def forward(self, y, info):
+        return y, 0, 0
+
 
 class ALISTA(nn.Module):
     def __init__(self, m, n, k, phi, W, s, p):

@@ -3,6 +3,9 @@ import matplotlib.pyplot as plt
 from scipy.linalg import orth
 from LISTA import LISTA,train_lista
 from func import shrinkage, ista
+import torch
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # dimensions of the sparse signal, measurement and sparsity
 m, n, k = 1000, 256, 5
