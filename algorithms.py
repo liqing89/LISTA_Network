@@ -86,8 +86,6 @@ class LISTA(nn.Module):
         self.lmbda = lmbda
         self.L = np.max(np.linalg.eigvals(np.dot(phi, phi.T)).astype(np.float32)) # 矩阵特征值最大值
     
-    
-
     def forward(self, y, info):
         return y, 0, 0
 
@@ -399,3 +397,50 @@ class AGLISTA(nn.Module):
 
     def load(self, name):
         self.load_state_dict(torch.load(name, map_location=device))
+
+if __name__ == '__main__':
+
+    # ------------------- 参数初始化 ------------------
+    m, n, k = 1000, 256, 5
+    N = 5000
+
+    # -------------------- [压缩感知base] 制作字典矩阵 ----------------------
+    Psi = np.eye(m)
+    Phi = np.random.randn(n, m)
+    Phi = np.transpose(orth(np.transpose(Phi))) # 为什么要对Phi进行正交化
+    W_d = np.dot(Phi, Psi)
+
+    # ------------ [训练集] 制作稀疏向量 并使用字典矩阵生成观测值 ----------
+    Z = np.zeros((N, m))
+    X = np.zeros((N, n))
+    for i in range(N):
+        # how to generate sparse signal Z:
+        index_k = np.random.choice(a=m, size=k, replace=False, p=None) # 1.randomly ick k elements for set the location of non-zero elements
+        Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,]) # 2.randomly generate the altitude of non-zero elements
+        # how to generate measurement X:
+        X[i] = np.dot(W_d, Z[i, :]) # X = Wd * Z
+
+    # ----------------- [网络生成] 给出测量值和字典矩阵 生成重构网络net -----------------
+    net, err_list = train_lista(X, W_d, 0.1, 2)
+
+    # --------- [测试集] 重新生成同字典矩阵下的稀疏向量和对应观测值 】------------
+    Z = np.zeros((1, m))
+    X = np.zeros((1, n))
+    for i in range(1):
+        index_k = np.random.choice(a=m, size=k, replace=False, p=None)
+        Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,])
+        X[i] = np.dot(W_d, Z[i, :])
+
+    # ---------- [网络应用] 使用net对测试集的观测值进行重构 反演稀疏向量 -----------
+    Z = np.zeros((1, m))
+    Z_recon = net(torch.from_numpy(X).float().to(device))
+    Z_recon = Z_recon.detach().cpu().numpy()
+
+    # ------------------------------ 画图 -----------------------------------
+    plt.figure(figsize=(8, 8))
+    plt.subplot(2, 1, 1)
+    plt.plot(X[0])
+    plt.subplot(2,1,2)
+    plt.plot(Z[0], label='real')
+    plt.subplot(2,1,2)
+    plt.plot(Z_recon[0], '.-', label='LISTA')
