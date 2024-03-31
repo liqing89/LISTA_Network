@@ -83,7 +83,8 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,  momentum=0.9)
 
     loss_list = []
-    for epoch in tqdm(range(100),desc='training process'):
+    ttl = 50
+    for epoch in tqdm(range(ttl),desc='training process'):
         time.sleep(0.1)
         index_samples = np.random.choice(a=n_samples, size=n_samples, replace=False, p=None)
         Y_shuffle = Y[index_samples]
