@@ -17,6 +17,7 @@ import Change_model
 import gc
 import pandas as pd
 import datetime
+
 # 清除缓存
 gc.collect()
 projectFolderPath  = os.getcwd()
@@ -57,10 +58,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # 加载数据集
 # dataset_loader_Train = DataLoader(dataset_general.Mytraindataset(root= 'E:\code\AdaTomo\data'),batch_size=128, shuffle = True )
 # dataset_loader_Valid = DataLoader(dataset_general.Myvaliddataset(root= 'E:\code\AdaTomo\data'),batch_size=128, shuffle = False )
-dataset_loader_Train = DataLoader(dataset_general.Mytraindataset(root= datasetPath ,test_size=0.3,train=True),batch_size=128, shuffle = True )
-dataset_loader_Valid = DataLoader(dataset_general.Mytraindataset(root= datasetPath ,test_size=0.3,train=False),batch_size=128, shuffle = False )
+dataset_loader_Train = DataLoader(dataset_general.Mytraindataset(root = datasetPath , test_size = 0.3, train = True), batch_size = 128, shuffle = True )
+dataset_loader_Valid = DataLoader(dataset_general.Mytraindataset(root = datasetPath , test_size = 0.3, train = False), batch_size = 128, shuffle = False )
+
 # assert dataset_loader_Train
-# assert dataset_loader_Valid 
+# assert dataset_loader_Valid
 num_samples = len(dataset_general.Mytraindataset(root= datasetPath ))
 # 读取模型
 D = np.load(f"{datasetPath}/original_D.npy") # 观测矩阵
@@ -113,12 +115,12 @@ for epoch in range(Epoch):
         #     b_y, b_A, b_x = b_y.cuda(), b_A.cuda(), b_x.cuda()
         # else:
         #     b_y, b_A, b_x = b_y.cpu(), b_A.cpu(), b_x.cpu()
-        x_hat = model(b_y, b_A ,epoch)  
-        x_hat = x_hat.unsqueeze(2) #LISTA网络需要加上这句话
+        x_hat = model(b_y, b_A ,epoch)   # A.得到反演的三维空间结果
+        x_hat = x_hat.unsqueeze(2) # LISTA网络需要加上这句话
         D = b_A.expand(x_hat.shape[0],args.n,args.m)
         D.to(device)
-        y = torch.bmm(D,x_hat)
-        loss =  F.mse_loss(x_hat,b_x, reduction="mean") + F.mse_loss(y,b_y,reduction="mean")
+        y = torch.bmm(D,x_hat) # B.对反演结果进行观测
+        loss =  F.mse_loss(x_hat,b_x, reduction="mean") + F.mse_loss(y,b_y,reduction="mean") # A和B的误差
         zero = torch.zeros_like(b_x)
         loss2 = F.mse_loss(b_x,zero,reduction='mean')
         loss.backward()   # backpropagation, compute gradients

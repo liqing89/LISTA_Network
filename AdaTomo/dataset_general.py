@@ -26,19 +26,20 @@ class Mytraindataset(Dataset):
         self.split_data(test_size)
 
     def load_data(self):
-        X = np.load(os.path.join(data_path,'X_train_org.npy'))
+        X = np.load(os.path.join(data_path,'X_train_org.npy')) # <class 'numpy.ndarray'>
         Y = np.load(os.path.join(data_path,'Y_train_org.npy'))
         D = np.load(os.path.join(data_path,'original_D.npy'))
         # NumPy数组转换为PyTorch张量
-        self.X  = torch.tensor(X, dtype=torch.float32)
+        self.X  = torch.tensor(X, dtype=torch.float32) # <class 'torch.Tensor'>
         self.Y  = torch.tensor(Y, dtype=torch.float32)
         self.D  = torch.tensor(D, dtype=torch.float32)
         self.num_pixels = self.Y.shape[0]
         [self.m,self.n] = self.D.shape
-        self.Y = self.Y.reshape(-1,self.m,1)
+        self.Y = self.Y.reshape(-1,self.m,1) # torch.Size([100000, 16, 1])
         self.X = self.X.reshape(-1,self.n,1)
 
     def split_data(self,test_size):
+        # 划分数据集为训练集和测试集
         X_train, X_val, Y_train, Y_val = train_test_split(self.X, self.Y, test_size=test_size, random_state=42)
         self.X_train = X_train
         self.Y_train = Y_train
