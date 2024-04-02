@@ -8,6 +8,7 @@ import sys
 #for debug
 from scipy.linalg import orth
 import matplotlib.pyplot as plt
+import pickle
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -48,10 +49,13 @@ class LISTA(nn.Module):
 
     def forward(self, y):
         x = self.shrinkage(self._W(y))
+
         if self.max_iter == 1 :
             return x
+
         for iter in range(self.max_iter):
             x = self.shrinkage(self._W(y) + self._S(x))
+
         return x
 
 
@@ -81,7 +85,8 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,  momentum=0.9)
 
     loss_list = []
-    for epoch in tqdm(range(100),desc='training process'):
+    total = 1
+    for epoch in tqdm(range(total),desc='training process'):
         time.sleep(0.1)
         index_samples = np.random.choice(a=n_samples, size=n_samples, replace=False, p=None)
         Y_shuffle = Y[index_samples]
@@ -118,66 +123,51 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
 
 if __name__ == '__main__':
 
-    
-    # ------------------- 导入数据 并进行参数初始化 ------------------
-    root = '/Users/liqing/Research/LISTA_Network/AdaTomo/data'
-    X = np.load(f"{root}/X_train_org.npy") # 稀疏信号(100000, 100)
-    Y = np.load(f"{root}/Y_train_org.npy") # 观测信号(100000, 16)
-    D = np.load(f"{root}/original_D.npy") # 字典矩阵(16, 100)
-    m, n, k = X.shape[1], Y.shape[1], 5
-    N = X.shape[0] # or Y.shape[0]
-    
-    
-    # -------------------- [压缩感知base] 制作字典矩阵 ----------------------
+    # 硬编码根路径
+    root = 'tutorial_lista'
+
+    # dimensions of the sparse signal, measurement and sparsity
+    m, n, k = 100, 16, 5
+    # number of test examples
+    N = 5000
+
+    # generate dictionary
     Psi = np.eye(m)
     Phi = np.random.randn(n, m)
-    Phi = np.transpose(orth(np.transpose(Phi))) # 为什么要对Phi进行正交化
+    Phi = np.transpose(orth(np.transpose(Phi)))
     W_d = np.dot(Phi, Psi)
 
-    # ------------ [训练集] 制作稀疏向量 并使用字典矩阵生成观测值 ----------
-    from sklearn.model_selection import train_test_split
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.1, random_state=42) # 拆分 X 和 Y 数组为训练集和测试集
-    # Z = np.zeros((N, m))
-    # X = np.zeros((N, n))
-    N_train  = X_train.shape[0]
-    Y_measure = np.zeros((N_train, n))
-    for i in range(N_train):
-    #     # how to generate sparse signal Z:
-    #     index_k = np.random.choice(a=m, size=k, replace=False, p=None) # 1.randomly ick k elements for set the location of non-zero elements
-    #     Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,]) # 2.randomly generate the altitude of non-zero elements
-        # how to generate measurement X:
-        # X[i] = np.dot(W_d, Z[i, :]) # X = Wd * Z
-        Y_measure[i,:] = np.dot(W_d, X_train[i, :]) # Y = Wd * X
+    # generate sparse signal Z and measurement X
+    Z = np.zeros((N, m))
+    X = np.zeros((N, n))
+    for i in range(N):
+        index_k = np.random.choice(a=m, size=k, replace=False, p=None)
+        Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,])
+        X[i] = np.dot(W_d, Z[i, :])
 
-    # ----------------- [网络生成] 给出测量值和字典矩阵 生成重构网络net -----------------
-    net, err_list = train_lista(Y_measure, W_d, 0.1, 2)
+    # computing average reconstruction-SNR
+    net, err_list = train_lista(X, W_d, 0.1, 2)
 
+    with open('net.pkl', 'wb') as f:
+        pickle.dump(f"{root}/net.pkl", f)
+    with open('err_list.pkl', 'wb') as f:
+        pickle.dump(f"{root}/err_list.pkl", f)
 
-    # --------- [测试集] 重新生成同字典矩阵下的稀疏向量和对应观测值 】------------
-    # Z = np.zeros((1, m))
-    # X = np.zeros((1, n))
-    # for i in range(1):
-    #     index_k = np.random.choice(a=m, size=k, replace=False, p=None)
-    #     Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,])
-    #     X[i] = np.dot(W_d, Z[i, :])
+    Z = np.zeros((1, m))
+    X = np.zeros((1, n))
+    for i in range(1):
+        index_k = np.random.choice(a=m, size=k, replace=False, p=None)
+        Z[i, index_k] = 5 * np.random.randn(k, 1).reshape([-1,])
+        X[i] = np.dot(W_d, Z[i, :])
 
-
-    # ---------- [网络应用] 使用net对测试集的观测值进行重构 反演稀疏向量 -----------
-    # Z = np.zeros((1, m))
-    # Z_recon = net(torch.from_numpy(X).float().to(device))
-    # Z_recon = Z_recon.detach().cpu().numpy()
-    Y_recon = np.zeros((Y_test.shape[0], m))
-    for i in range(Y_test.shape[0]):
-        Y_recon[i,:] = net(torch.from_numpy(X_test[i,:]).float().to(device))
-        Y_recon[i,:] =  Y_recon[i,:].detach().cpu().numpy()
-
-
-    # ------------------------------ 画图 -----------------------------------
+    Z_recon = net(torch.from_numpy(X).float().to(device))
+    Z_recon = Z_recon.detach().cpu().numpy()
     plt.figure(figsize=(8, 8))
     plt.subplot(2, 1, 1)
     plt.plot(X[0])
     plt.subplot(2,1,2)
-    plt.plot(Y_test[0], label='real')
+    plt.plot(Z[0], label='real')
     plt.subplot(2,1,2)
-    plt.plot(Y_recon[0], '.-', label='LISTA')
+    plt.plot(Z_recon[0], '.-', label='LISTA')
     plt.show()
+    
