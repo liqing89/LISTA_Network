@@ -87,7 +87,14 @@ class LISTA(nn.Module):
         self.L = np.max(np.linalg.eigvals(np.dot(phi, phi.T)).astype(np.float32)) # 矩阵特征值最大值
     
     def forward(self, y, info):
-        return y, 0, 0
+        x = self.shrinkage(self._W(y))
+
+        if self.max_iter == 1 :
+            return x
+
+        for iter in range(self.max_iter):
+            x = self.shrinkage(self._W(y) + self._S(x))
+        return x
 
 
 class ALISTA(nn.Module):

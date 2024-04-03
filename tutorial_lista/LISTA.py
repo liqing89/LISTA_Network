@@ -11,6 +11,10 @@ import matplotlib.pyplot as plt
 import pickle
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# if torch.cuda.is_available():
+#     device = [torch.device("cuda:1"), torch.device("cuda:2"),torch.device("cuda:3"),torch.device("cuda:4"),torch.device("cuda:5")]
+# else:
+#     device = [torch.device("cpu")]
 
 class LISTA(nn.Module):
     # net = LISTA(n, m, W_d, max_iter=30, L=L, theta=a/L)
@@ -73,19 +77,20 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
     W_d = torch.from_numpy(dictionary)
     W_d = W_d.float().to(device)
 
-    net = LISTA(n, m, W_d, max_iter=30, L=L, theta=a/L)
+    net = LISTA(n, m, W_d, max_iter=max_iter, L=L, theta=a/L)
     net = net.float().to(device)
     net.weights_init()
+    # net = nn.DataParallel(net)
 
     # build the optimizer and criterion
-    learning_rate = 1e-2
+    learning_rate = 5e-3
     criterion1 = nn.MSELoss()
     criterion2 = nn.L1Loss()
     all_zeros = torch.zeros(batch_size, m).to(device)
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate,  momentum=0.9)
 
     loss_list = []
-    total = 1
+    total = 20
     for epoch in tqdm(range(total),desc='training process'):
         time.sleep(0.1)
         index_samples = np.random.choice(a=n_samples, size=n_samples, replace=False, p=None)
@@ -117,7 +122,6 @@ def train_lista(Y, dictionary, a, L, max_iter=30):
             with torch.no_grad():
                 loss_list.append(loss.detach().data)
             
-            
     return net, loss_list
 
 
@@ -127,9 +131,11 @@ if __name__ == '__main__':
     root = 'tutorial_lista'
 
     # dimensions of the sparse signal, measurement and sparsity
-    m, n, k = 100, 16, 5
+    # m, n, k = 100, 16, 5
+    m, n, k = 1000, 256, 5
     # number of test examples
-    N = 5000
+    # N = 100000
+    # N = 1000
 
     # generate dictionary
     Psi = np.eye(m)
@@ -170,4 +176,5 @@ if __name__ == '__main__':
     plt.subplot(2,1,2)
     plt.plot(Z_recon[0], '.-', label='LISTA')
     plt.show()
+    plt.savefig("result_ideal_256.png")
     
